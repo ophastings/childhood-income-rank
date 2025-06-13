@@ -1,6 +1,8 @@
 # The file contains all of the analysis in:
 # "Growing up Different(ly than Last Time We Asked): Social Status and Changing Reports of Childhood Income Rank"
-
+#
+# Last updated: May 20, 2025
+#
 # Requires the version of the gssr package that was updated on Nov 11, 2024 
 # (data types of some variables differs in previous version, so extra data wrangling required)
 
@@ -32,6 +34,7 @@ library(ggsankey)
 
 library(gssr, gssrdoc)
 
+setwd("results")
 
 #### Load the data #####
 
@@ -182,6 +185,9 @@ gss_panel_wide <- gss_panel_wide %>%
 gss_panel_wide %>%
   tabyl(incom16_change)
 
+gss_panel_wide <- gss_panel_wide |>
+  relocate(incom16_1, incom16_2, incom16_3, incom16_change)
+
 gss_panel_wide %>%
   tabyl(sex_change)
 
@@ -243,13 +249,25 @@ pl <- pl +geom_sankey(flow.alpha = 0.5,          #This Creates the transparency 
                       show.legend = TRUE,  # This determines if you want your legend to show
                       width = .2)        #
 
+# pl + labs(x = "waves are two years apart",
+#           fill = "childhood income\nrank at age 16") +
+#   theme_sankey(base_size = 12) +
+#   theme(legend.position = "bottom") +   # Move legend to bottom
+#   scale_fill_manual(breaks = c("far above average", "above average", "average", "below average", "far below average"), 
+#                     values = c("#66C2A5" ,"#FC8D62" ,"#8DA0CB", "#E78AC3", "#A6D854"),
+#                     guide = guide_legend(nrow = 3))
+
 pl + labs(x = "waves are two years apart",
-          fill = "retrospective income rank\nat age 16") +
+          fill = "childhood income\nrank at age 16") +
   theme_sankey(base_size = 12) +
+  theme(legend.position = "right") +   # Move legend to bottom
   scale_fill_manual(breaks = c("far above average", "above average", "average", "below average", "far below average"), 
-                    values = c("#66C2A5" ,"#FC8D62" ,"#8DA0CB", "#E78AC3", "#A6D854"))
+                    values = c("#66C2A5" ,"#FC8D62" ,"#8DA0CB", "#E78AC3", "#A6D854"),
+                    )
 
 ggsave("sankey.pdf", width = 8, height = 4, units = "in")
+
+ggsave("sankey2.pdf", width = 6, height = 5.5, units = "in")
 
 
 #### Descriptives #### 
@@ -438,8 +456,31 @@ extract_coefficients <- function(model) {
   return(coef_se_df)
 }
 
+#### Check on the Variance
 
+vars <- c("zinc", "zfinrela", "zsatfin")
 
+decomp_tbl <- gss_panel_long2_complete %>%
+  select(id, all_of(vars)) %>%    # keep id and vars (weights not used here)
+  pivot_longer(-id, names_to = "variable", values_to = "value") %>%
+  group_by(variable) %>%
+  summarise(
+    var_total   = var(value, na.rm = TRUE),
+    # between = variance of the id-means
+    var_between = var( tapply(value, id, mean, na.rm = TRUE), na.rm = TRUE ),
+    # within = variance of (value − person_mean)
+    var_within  = var( value - ave(value, id, FUN = function(z) mean(z, na.rm = TRUE)),
+                       na.rm = TRUE ),
+    pct_between = var_between / var_total,
+    pct_within  = var_within  / var_total
+  ) %>%
+  arrange(desc(pct_within))
+
+decomp_tbl |>
+  mutate(across(where(is.numeric), ~ round(., 2))) |>
+  write_csv("variance_decomposition_rounded.csv")
+
+write_csv(decomp_tbl, "variance_decomposition.csv")
 
 #### Main Fixed Effects Models ####
 
@@ -449,6 +490,8 @@ m1cfe<-feols(zincom16 ~  zsatfin + marital_f+childs+attend + year_f|id, data = g
 m1allfe<-feols(zincom16 ~ zinc + zfinrela + zsatfin + marital_f+childs+attend + year_f|id, data = gss_panel_long2_complete, weights=~wtpannr12)
 
 huxreg(m1afe, m1bfe, m1cfe, m1allfe) 
+
+summary(m1allfe)$r2["within"]
 
 # check that equivaled and logged income produce similar null results (they do)
 #m1allfe_alt1<-feols(zincom16 ~ incequiv + zfinrela + zsatfin + marital_f+childs+attend + year_f|id, data = gss_panel_long2_complete, weights=~wtpannr12)
@@ -491,10 +534,10 @@ coef_m1allfe <- extract_coefficients(m1allfe)
 
 
 # Add a column to indicate the model
-coef_m1afe$model <- "Separate"
-coef_m1bfe$model <- "Separate"
-coef_m1cfe$model <- "Separate"
-coef_m1allfe$model <- "Together"
+coef_m1afe$model <- "Separate Models"
+coef_m1bfe$model <- "Separate Models"
+coef_m1cfe$model <- "Separate Models"
+coef_m1allfe$model <- "Combined Model"
 
 
 # Combine the results
@@ -504,21 +547,21 @@ combined_coef_se <- rbind(coef_m1afe, coef_m1bfe, coef_m1cfe, coef_m1allfe) |>
     variable = str_replace_all(variable, "zinc", "income (logged)"),
     variable = str_replace_all(variable, "zfinrela", "perceived relative income"),
     variable = str_replace_all(variable, "zsatfin", "financial satisfaction"),
-    model = factor(model, levels = c("Together", "Separate")), # Reorder model to display Separate first
+    model = factor(model, levels = c("Combined Model", "Separate Models")), # Reorder model to display Separate first
   )
 
 ggplot(combined_coef_se, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
   theme_minimal() +
   labs(x = "Variable", y = "Coefficient") +   #, title = "Fixed Effects Coefficients") +
   coord_flip() +
-  scale_color_manual(values = c("Separate" = "#1F77B4", "Together" = "#FF7F0E"), breaks = c("Separate", "Together")) + # ggplot default colors
-  scale_shape_manual(values = c("Separate" = 16, "Together" = 17), breaks = c("Separate", "Together")) # ggplot default shapes
+  scale_color_manual(values = c("Separate Models" = "#1F77B4", "Combined Model" = "#FF7F0E"), breaks = c("Separate Models", "Combined Model")) + # ggplot default colors
+  scale_shape_manual(values = c("Separate Models" = 16, "Combined Model" = 17), breaks = c("Separate Models", "Combined Model")) # ggplot default shapes
 
 
-ggsave("fe_main_new.pdf", width = 8, height = 4, units = "in")
+ggsave("fe_main_new2.pdf", width = 8, height = 4, units = "in")
 
 
 #### Models by Race ####
@@ -638,8 +681,8 @@ combined_coef_se_race <- rbind(coef_white, coef_black, coef_hispanic) |>
 
 plot_race <- ggplot(combined_coef_se_race, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
   theme_minimal() +
   #  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Variable", y = "Coefficient") + # , title = "Fixed Effects Coefficients by Race/Ethnicity") +
@@ -649,7 +692,7 @@ plot_race <- ggplot(combined_coef_se_race, aes(x = fct_rev(fct_relevel(variable,
 
 plot_race
 
-ggsave("fe_race.pdf", width = 8, height = 4, units = "in")
+ggsave("fe_race2.pdf", width = 8, height = 4, units = "in")
 
 
 #### Models by Sex #### 
@@ -751,8 +794,8 @@ combined_coef_se_sex <- rbind(coef_female, coef_male) |>
 
 plot_sex <- ggplot(combined_coef_se_sex, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
   theme_minimal() +
   #  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Variable", y = "Coefficient") + #, title = "Fixed Effects Coefficients by Sex") +
@@ -761,7 +804,7 @@ plot_sex <- ggplot(combined_coef_se_sex, aes(x = fct_rev(fct_relevel(variable, "
   scale_shape_manual(values = c("Female" = 16, "Male" = 17), breaks = c("Female", "Male")) # ggplot default shapes
 
 plot_sex
-ggsave("fe_sex.pdf", plot_sex, width = 8, height = 4, units = "in")
+ggsave("fe_sex2.pdf", plot_sex, width = 8, height = 4, units = "in")
 
 # If combinging sex and race into one plot
 # plot_sex / plot_race
