@@ -1,10 +1,12 @@
-# The file contains all of the analysis in:
+# The file contains all of the analysis in the paper:
 # "Growing up Different(ly than Last Time We Asked): Social Status and Changing Reports of Childhood Income Rank"
 #
-# Last updated: May 20, 2025
+# Amber Obermaier and Orestes P. Hastings
 #
-# Requires the version of the gssr package that was updated on Nov 11, 2024 
-# (data types of some variables differs in previous version, so extra data wrangling required)
+# Last updated: Aug 11, 2025
+#
+# Uses the version of the gssr package that was updated on Nov 11, 2024 
+# (data types of some variables differs from previous versions, so extra data wrangling could be required)
 
 library(tidyverse)
 library(huxtable)
@@ -34,9 +36,12 @@ library(ggsankey)
 
 library(gssr, gssrdoc)
 
+#######################
+# Change this to the directory where you want your result to go
 setwd("results")
+#######################
 
-#### Load the data #####
+#### Load the data ##### 
 
 data(gss_panel10_long)
 data(gss_panel08_long)
@@ -69,8 +74,6 @@ gss_panel08_long <- gss_panel08_long %>%
 gss_panel10_long <- gss_panel10_long %>%
   select(-cshutyp06) %>%
   select(-version)
-
-
 
 
 #### Merge the data and clean ####
@@ -185,6 +188,10 @@ gss_panel_wide <- gss_panel_wide %>%
 gss_panel_wide %>%
   tabyl(incom16_change)
 
+# incom16_change  n  percent
+# FALSE         1513 0.435521
+# TRUE          1961 0.564479
+
 gss_panel_wide <- gss_panel_wide |>
   relocate(incom16_1, incom16_2, incom16_3, incom16_change)
 
@@ -267,7 +274,7 @@ pl + labs(x = "waves are two years apart",
 
 ggsave("sankey.pdf", width = 8, height = 4, units = "in")
 
-ggsave("sankey2.pdf", width = 6, height = 5.5, units = "in")
+# ggsave("sankey2.pdf", width = 6, height = 5.5, units = "in")
 
 
 #### Descriptives #### 
@@ -404,14 +411,14 @@ combined_df_keep <- combined_df |>
 
 ggplot(combined_df_keep, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 4) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2, linewidth = .8) +
   theme_minimal() +
   #  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Variable", y = "Coefficient") +    # title = "Coefficient Plots from Pooled Models (no Fixed Effects)"
+  labs(x = "Variable", y = "Coefficient (Standardized)") +    # title = "Coefficient Plots from Pooled Models (no Fixed Effects)"
   coord_flip() +
-  scale_color_manual(values = c("Separate" = "#1F77B4", "Together" = "#FF7F0E"), breaks = c("Separate", "Together")) + # ggplot default colors
-  scale_shape_manual(values = c("Separate" = 16, "Together" = 17), breaks = c("Separate", "Together")) # ggplot default shapes
+  scale_color_manual(values = c("Separate" = "#1F77B4", "Together" = "#FF7F0E"), breaks = c("Separate", "Together")) + 
+  scale_shape_manual(values = c("Separate" = 16, "Together" = 17), breaks = c("Separate", "Together")) 
 
 
 ggsave("pooled.pdf", width = 8, height = 4, units = "in")
@@ -552,16 +559,16 @@ combined_coef_se <- rbind(coef_m1afe, coef_m1bfe, coef_m1cfe, coef_m1allfe) |>
 
 ggplot(combined_coef_se, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 5) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 4) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2, linewidth = .8) +
   theme_minimal() +
-  labs(x = "Variable", y = "Coefficient") +   #, title = "Fixed Effects Coefficients") +
+  labs(x = "Variable", y = "Coefficient (Standardized)") +   #, title = "Fixed Effects Coefficients") +
   coord_flip() +
-  scale_color_manual(values = c("Separate Models" = "#1F77B4", "Combined Model" = "#FF7F0E"), breaks = c("Separate Models", "Combined Model")) + # ggplot default colors
-  scale_shape_manual(values = c("Separate Models" = 16, "Combined Model" = 17), breaks = c("Separate Models", "Combined Model")) # ggplot default shapes
+  scale_color_manual(values = c("Separate Models" = "#1F77B4", "Combined Model" = "#FF7F0E"), breaks = c("Separate Models", "Combined Model")) + 
+  scale_shape_manual(values = c("Separate Models" = 16, "Combined Model" = 17), breaks = c("Separate Models", "Combined Model")) 
 
 
-ggsave("fe_main_new2.pdf", width = 8, height = 4, units = "in")
+ggsave("fe_main.pdf", width = 8, height = 4, units = "in")
 
 
 #### Models by Race ####
@@ -681,18 +688,18 @@ combined_coef_se_race <- rbind(coef_white, coef_black, coef_hispanic) |>
 
 plot_race <- ggplot(combined_coef_se_race, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 5) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 4) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2, linewidth = .8) +
   theme_minimal() +
   #  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Variable", y = "Coefficient") + # , title = "Fixed Effects Coefficients by Race/Ethnicity") +
+  labs(x = "Variable", y = "Coefficient (Standardized)") + # , title = "Fixed Effects Coefficients by Race/Ethnicity") +
   coord_flip() +
-  scale_color_manual(values = c("NH White" = "#1F77B4", "NH Black" = "#FF7F0E", "Hispanic" = "#2CA02C"), breaks = c("NH White", "NH Black", "Hispanic")) + # Default ggplot colors
-  scale_shape_manual(values = c("NH White" = 16, "NH Black" = 17, "Hispanic" = 15), breaks = c("NH White", "NH Black", "Hispanic")) # Default shapes
+  scale_color_manual(values = c("NH White" = "#1F77B4", "NH Black" = "#FF7F0E", "Hispanic" = "#2CA02C"), breaks = c("NH White", "NH Black", "Hispanic")) + 
+  scale_shape_manual(values = c("NH White" = 16, "NH Black" = 17, "Hispanic" = 15), breaks = c("NH White", "NH Black", "Hispanic")) 
 
 plot_race
 
-ggsave("fe_race2.pdf", width = 8, height = 4, units = "in")
+ggsave("fe_race.pdf", width = 8, height = 4, units = "in")
 
 
 #### Models by Sex #### 
@@ -794,17 +801,17 @@ combined_coef_se_sex <- rbind(coef_female, coef_male) |>
 
 plot_sex <- ggplot(combined_coef_se_sex, aes(x = fct_rev(fct_relevel(variable, "income (logged)")), y = coef, color = model, shape = model)) +
   geom_hline(yintercept=0, lwd=1, colour="grey50") +
-  geom_point(position = position_dodge(width = 0.5), size = 5) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.2) +
+  geom_point(position = position_dodge(width = 0.5), size = 4) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(width = 0.5), width = 0.2, linewidth = .8) +
   theme_minimal() +
   #  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Variable", y = "Coefficient") + #, title = "Fixed Effects Coefficients by Sex") +
+  labs(x = "Variable", y = "Coefficient (Standardized)") + #, title = "Fixed Effects Coefficients by Sex") +
   coord_flip() +
-  scale_color_manual(values = c("Female" = "#1F77B4", "Male" = "#FF7F0E"), breaks = c("Female", "Male")) + # ggplot default colors
-  scale_shape_manual(values = c("Female" = 16, "Male" = 17), breaks = c("Female", "Male")) # ggplot default shapes
+  scale_color_manual(values = c("Female" = "#1F77B4", "Male" = "#FF7F0E"), breaks = c("Female", "Male")) + 
+  scale_shape_manual(values = c("Female" = 16, "Male" = 17), breaks = c("Female", "Male"))
 
 plot_sex
-ggsave("fe_sex2.pdf", plot_sex, width = 8, height = 4, units = "in")
+ggsave("fe_sex.pdf", plot_sex, width = 8, height = 4, units = "in")
 
 # If combinging sex and race into one plot
 # plot_sex / plot_race
